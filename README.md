@@ -85,6 +85,7 @@ sudo chmod 777 /var/run/docker.sock
 docker run -d --name sonar -p 9000:9000 sonarqube:lts-community
 ```
 Access SonarQube: `http://<jenkins-sonar-ip>:9000`
+
 Login: `admin/admin`
 
 ### ✅ Install Trivy (Security Scanner)
