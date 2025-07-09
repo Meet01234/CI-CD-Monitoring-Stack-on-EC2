@@ -1,6 +1,8 @@
 
 # 🚀 Jenkins + SonarQube + Prometheus + Grafana Full DevOps Setup (AWS EC2)
 
+![Screenshot](Flow.png)
+
 This guide covers setting up a full CI/CD and monitoring infrastructure using Jenkins, SonarQube, Prometheus, and Grafana across two AWS EC2 instances running Ubuntu 22.04.
 
 ---
@@ -82,9 +84,8 @@ sudo chmod 777 /var/run/docker.sock
 ```bash
 docker run -d --name sonar -p 9000:9000 sonarqube:lts-community
 ```
-Login: `admin/admin`
-
 Access SonarQube: `http://<jenkins-sonar-ip>:9000`
+Login: `admin/admin`
 
 ### ✅ Install Trivy (Security Scanner)
 ```bash
@@ -163,26 +164,91 @@ ExecStart=/usr/local/bin/prometheus \
 [Install]
 WantedBy=multi-user.target
 ```
+```bash
+sudo systemctl enable prometheus
+sudo systemctl start prometheus
+sudo systemctl status prometheus
+journalctl -u prometheus -f --no-pager
+```
 
 URL: `http://<prometheus-grafan-ip>:9090`
 
 ### ✅ Install Node Exporter
 Add job_name in Prometheus config:
+```bash
+sudo useradd \
+    --system \
+    --no-create-home \
+    --shell /bin/false node_exporter
+```
+```bash
+wget https://github.com/prometheus/node_exporter/releases/download/v1.6.1/node_exporter-1.6.1.linux-amd64.tar.gz
+```
+```bash
+tar -xvf node_exporter-1.6.1.linux-amd64.tar.gz
+rm -rf node_exporter-1.6.1.linux-amd64.tar.gz
+mv node_exporter-1.6.1.linux-amd64/ node_exporter
+mv node_exporter /usr/local/bin/
+node_exporter --version
+```
+```bash
+sudo nano /etc/systemd/system/node_exporter.service
+```
+```service
+[Unit]
+Description=Node Exporter
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=500
+StartLimitBurst=5
+[Service]
+User=node_exporter
+Group=node_exporter
+Type=simple
+Restart=on-failure
+RestartSec=5s
+ExecStart=/usr/local/bin/node_exporter \
+    --collector.logind
+[Install]
+WantedBy=multi-user.target
+```
+```bash
+sudo systemctl enable node_exporter
+sudo systemctl start node_exporter
+sudo systemctl status node_exporter
+journalctl -u node_exporter -f --no-pager
+```
+```bash
+sudo nano /etc/prometheus/prometheus.yml
+```
 ```yaml
 - job_name: "node_export"
   static_configs:
     - targets: ["localhost:9100"]
 ```
-Check targets: `http://<prometheus-ip>:9090/targets`
+```bash
+promtool check config /etc/prometheus/prometheus.yml
+curl -X POST http://localhost:9090/-/reload
+```
+Check targets: `http://<prometheus-grafana-ip>:9090/targets`
 
 ### ✅ Install Grafana
 ```bash
 sudo apt-get install -y apt-transport-https software-properties-common
+wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+echo "deb https://packages.grafana.com/oss/deb stable main" | sudo tee -a /etc/apt/sources.list.d/grafana.list
+```
+```bash
+sudo apt update -y
+sudo apt-get -y install grafana
+```
 # Add repo and install Grafana
+```bash
 sudo systemctl enable grafana-server
 sudo systemctl start grafana-server
+sudo systemctl status grafana-server
 ```
-Grafana URL: `http://<prometheus-ip>:3000`  
+Grafana URL: `http://<prometheus-grafana -ip>:3000`  
 Login: `admin` / `admin`  
 
 Add Prometheus as a data source.
@@ -199,59 +265,279 @@ Add Prometheus as a data source.
 - SonarQube Scanner
 - NodeJS Plugin
 - OWASP Dependency-Check
-- Docker Pipeline & API
+- Docker
+- Docker Pipeline
+- Docker API
+- Docker-Build-Step
 
 ### 🔹 Prometheus Integration
-Set system path `/Prometheus` under Jenkins → System → Prometheus section.
+- Prometheus
+
+- Once that is done you will Prometheus is set to /Prometheus path in system configurations
+
+- go to dashboard > manage Jenkins > system 
+
+- Once that is done you will Prometheus is set to /Prometheus path in system configurations
+
+- Apply and Save
 
 ### 🔹 Email Configuration
-Set up SMTP with:
-- Host: `smtp.gmail.com`
-- Port: `465`
-- SSL enabled
-- App password stored in credentials
+- go to dashboard > manage jenkins > system
+
+- E-mail Notification section configure
+
+- SMTP: smtp.gmail.com
+
+ - click advanced 
+ 	 - checkout:- use SMTP authentication
+		 - username - your gmail_id
+		 - password - paste gmail_app_password
+
+ - checkout: use ssl
+ - smtp port - 465
+
+- Apply and save.
+
+**Click on Manage Jenkins–> credentials and add your mail username and generated password:**
+
+ - go to dashboard > manage jenkins > credential > system > global credential
+
+  - username - your_gmail_id
+  - password - app_password
+  - id - mail
+  - description - mail
+
+- Create
+
+**Extended E-mail Notification section configure:**
+- go to dashboard > manage jenkins > system
+
+- SMTP: smtp.gmail.com
+- smtp port - 465
+- click advanced
+  - credential - add your credential with user
+
+- checkout: use ssl
+
+- scroll down > default content type - HTML (text/html)
+
+- add default trigger - checkout - always , failure any
+
+- Apply and Save
 
 ### 🔹 Tools Configuration
-- **JDK:** jdk17 from adoptium.net
-- **NodeJS:** node16 from nodejs.org
+- **JDK:**
+- add jdk
+- Name: jdk17
+	  - checkout- install automatically
+		 - install from adoptium.net
+		 - version - jdk17.0.8.1+1
 
+- **NodeJS:**
+- Name: node16
+ 	 - checkout- install automatically
+ 		  - install from nodejs.org
+ 		  - version - Nodejs16.2.0
+  
 ---
 
 ## 🔐 SonarQube Integration
 
 ### Sonar Server Setup in Jenkins:
-1. Create token in SonarQube.
-2. Add token as secret in Jenkins credentials.
-3. Configure Jenkins SonarQube settings with:
-   - Name: `sonar-server`
-   - URL: `http://<jenkins-ip>:9000`
-   - Token: `Sonar-token`
+1. Click on Administration → Security → Users → Click on Tokens and Update Token → Give it a name → and click on Generate Token
+   - Copy Token
+2. Goto Jenkins Dashboard → Manage Jenkins → Credentials -> add
+   - kind - secret text
+   - secret - paste token here
+   - id - Sonar-token
+   - description - Sonar-token
+- Create
+3. Now, go to Dashboard → Manage Jenkins → System and Add
+   - SonarQube servers
+   - SonarQube installation
+   - Name - sonar-server
+
+Access SonarQube: <prometheus-grafana-ip>:9000
+- server auth token - Sonar-token (as add from credential)
+- Apply and Save
 
 ### Sonar Scanner:
-- Install in Jenkins Tools.
-- Name: `sonar-scanner`
+- dashboard -> manage Jenkins -> tools
+- SonarQube sacanner installation
+- add SonarQube scanner
+
+	 - SonarQube Scanner
+	 - name - sonar-scanner
+		- checkout install automatically 
+		- version - SonarQube Scanner 5.0.1.3006
+
+- Apply and Save
 
 ### Webhook in SonarQube:
-- URL: `http://<jenkins-ip>:9000/sonarqube-webhook/`
+- Administration–> Configuration–>Webhooks
+
+- Click on Create & Add details
+
+Access SonarQube: <http://jenkins-public-ip:9000>/sonarqube-webhook/
 
 ---
 
 ## 🔍 OWASP Dependency Check
-Jenkins → Tools → Dependency-Check → Install version 6.5.1  
-Name: `DP-Check`
+- Go to Dashboard → Manage Jenkins → Tools 
+- Dependency-check
+
+- Name - DP-Check
+
+- checkout install automaticly
+	 - install from GitHub.com
+	 - version - Dependency-check 6.5.1
+
+- Apply and Save
 
 ---
 
 ## 🐳 Docker Build & Push (Jenkins)
-- Add Docker tool in Jenkins → Tools.
-- Add DockerHub credentials in Jenkins → Credentials.
+- Docker Image Build and Push
+
+- go to Dashboard → Manage Jenkins → Tools →
+
+- Docker Installation
+
+- Name - docker
+
+  - checkout install automaticly
+	   - download from docker.com
+	   - docker version - latest
+
+**Add DockerHub Username and Password under Global Credentials:**
+
+- go to dashboard > manage Jenkins > credential > sustem > global credential
+
+- kind - username with password
+- username - dockerhub username
+- password - dockerhub password
+- id -docker
+- description - docker 
+
+- Create
+
 
 ---
 
 ## 📜 Pipeline Script & Build
-- Add declarative pipeline in Jenkins pipeline job.
-- Example: CI/CD for TMDB app including Trivy scan, Sonar analysis, Docker build & push.
+- Jenkins > Click New Item > Click Pipeline
 
+```groovy
+pipeline {
+    agent any
+ 
+    tools {
+        jdk 'jdk17'
+        nodejs 'node16'
+    }
+ 
+    environment {
+        SCANNER_HOME = tool 'sonar-scanner'
+    }
+ 
+    stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+ 
+        stage('Checkout from Git') {
+            steps {
+                git branch: 'main', url: 'https://github.com/Aj7Ay/Netflix-clone.git'
+            }
+        }
+ 
+        stage('Sonarqube Analysis') {
+            steps {
+                withSonarQubeEnv('sonar-server') {
+                    sh '''$SCANNER_HOME/bin/sonar-scanner \
+                        -Dsonar.projectName=Netflix \
+                        -Dsonar.projectKey=Netflix'''
+                }
+            }
+        }
+ 
+        stage('Quality Gate') {
+            steps {
+                script {
+                    waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token'
+                }
+            }
+        }
+ 
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+ 
+        stage('OWASP FS SCAN') {
+            steps {
+                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
+                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+            }
+        }
+ 
+        stage('TRIVY FS SCAN') {
+            steps {
+                sh 'trivy fs . > trivyfs.txt'
+            }
+        }
+ 
+        stage('Docker Build & Push') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
+                        sh 'docker build --build-arg TMDB_V3_API_KEY=626fe3f7d2e721c6d51e76f35e8d74da -t netflix .'
+                        sh 'docker tag netflix 9016514790/netflix:latest'
+                        sh 'docker push 9016514790/netflix:latest'
+                    }
+                }
+            }
+        }
+ 
+        stage('TRIVY Image Scan') {
+            steps {
+                sh 'trivy image 9016514790/netflix:latest > trivyimage.txt'
+            }
+        }
+ 
+        stage('Deploy to Container') {
+            steps {
+                script {
+                    // Optional: Stop & remove existing container if it exists
+                    sh '''
+                        docker rm -f netflix || true
+                        docker run -d --name netflix -p 8081:80 9016514790/netflix:latest
+                    '''
+                }
+            }
+        }
+    }
+ 
+    post {
+        always {
+            emailext(
+                attachLog: true,
+                subject: "'${currentBuild.result}'",
+                body: """
+                    Project: ${env.JOB_NAME}<br/>
+                    Build Number: ${env.BUILD_NUMBER}<br/>
+                    URL: <a href='${env.BUILD_URL}'>${env.BUILD_URL}</a>
+                """,
+                to: 'meetparmar14790@gmail.com',
+                attachmentsPattern: 'trivyfs.txt,trivyimage.txt'
+            )
+        }
+    }
+}
+```
 ---
 
 ## 📊 Grafana Dashboard Import
@@ -269,4 +555,14 @@ Name: `DP-Check`
 
 ---
 
-> 📘 Complete DevOps Monitoring and CI/CD Workflow on AWS EC2 with open-source tools.
+---
+
+![Output Screenshot](All-Pipeline-Success.png)
+
+![Output Screenshot](Dependency-Check-Trend.png)
+
+![Output Screenshot](Dependency-Check-Report.png)
+
+![Output Screenshot](Netflix.png)
+
+---
