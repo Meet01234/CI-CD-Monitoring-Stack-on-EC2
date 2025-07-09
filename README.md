@@ -82,12 +82,25 @@ sudo chmod 777 /var/run/docker.sock
 ```bash
 docker run -d --name sonar -p 9000:9000 sonarqube:lts-community
 ```
+Login: `admin/admin`
+
+Access SonarQube: `http://<jenkins-sonar-ip>:9000`
 
 ### ✅ Install Trivy (Security Scanner)
 ```bash
 nano trivy.sh
-# Paste script and run:
+```
+```bash
+sudo apt-get install wget apt-transport-https gnupg lsb-release -y
+wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+sudo apt-get update
+sudo apt-get install trivy -y
+```
+```bash
 chmod +x trivy.sh
+```
+```bash
 ./trivy.sh
 ```
 
@@ -103,8 +116,55 @@ chmod +x trivy.sh
 
 ### ✅ Install Prometheus
 Follow detailed steps to download binary, create service, configure Prometheus.yml, and enable the service.
+```bash
+sudo useradd \
+    --system \
+    --no-create-home \
+    --shell /bin/false prometheus
+```
+```bash
+wget https://github.com/prometheus/prometheus/releases/download/v2.47.1/prometheus-2.47.1.linux-amd64.tar.gz
+tar -xvf prometheus-2.47.1.linux-amd64.tar.gz
+rm -rf prometheus-2.47.1.linux-amd64.tar.gz
+sudo mkdir -p /data /etc/prometheus
+mv prometheus-2.47.1.linux-amd64/ prometheus
+cd prometheus
+```
+```bash
+sudo mv prometheus promtool /usr/local/bin/
+sudo mv consoles/ console_libraries/ /etc/prometheus/
+sudo mv prometheus.yml /etc/prometheus/prometheus.yml
+sudo chown -R prometheus:prometheus /etc/prometheus/ /data/
+prometheus --version
+```
+```bash
+sudo nano /etc/systemd/system/prometheus.service
+```
+```service
+[Unit]
+Description=Prometheus
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=500
+StartLimitBurst=5
+[Service]
+User=prometheus
+Group=prometheus
+Type=simple
+Restart=on-failure
+RestartSec=5s
+ExecStart=/usr/local/bin/prometheus \
+  --config.file=/etc/prometheus/prometheus.yml \
+  --storage.tsdb.path=/data \
+  --web.console.templates=/etc/prometheus/consoles \
+  --web.console.libraries=/etc/prometheus/console_libraries \
+  --web.listen-address=0.0.0.0:9090 \
+  --web.enable-lifecycle
+[Install]
+WantedBy=multi-user.target
+```
 
-URL: `http://<prometheus-ip>:9090`
+URL: `http://<prometheus-grafan-ip>:9090`
 
 ### ✅ Install Node Exporter
 Add job_name in Prometheus config:
