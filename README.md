@@ -1,95 +1,212 @@
-<div align="center">
-  <a href="http://netflix-clone-with-tmdb-using-react-mui.vercel.app/">
-    <img src="./public/assets/netflix-logo.png" alt="Logo" width="100" height="32">
-  </a>
 
-  <h3 align="center">Netflix Clone</h3>
+# 🚀 Jenkins + SonarQube + Prometheus + Grafana Full DevOps Setup (AWS EC2)
 
-  <p align="center">
-    <a href="https://netflix-clone-react-typescript.vercel.app/">View Demo</a>
-    ·
-    <a href="https://github.com/crazy-man22/netflix-clone-react-typescript/issues">Report Bug</a>
-    ·
-    <a href="https://github.com/crazy-man22/netflix-clone-react-typescript/issues">Request Feature</a>
-  </p>
-</div>
+This guide covers setting up a full CI/CD and monitoring infrastructure using Jenkins, SonarQube, Prometheus, and Grafana across two AWS EC2 instances running Ubuntu 22.04.
 
-<details>
-  <summary>Table of Contents</summary>
-  <ol>
-    <li>
-      <a href="#prerequests">Prerequests</a>
-    </li>
-    <li>
-      <a href="#which-features-this-project-deals-with">Which features this project deals with</a>
-    </li>
-    <li><a href="#third-party-libraries-used-except-for-react-and-rtk">Third Party libraries used except for React and RTK</a></li>
-    <li>
-      <a href="#contact">Contact</a>
-    </li>
-  </ol>
-</details>
+---
 
-<br />
+## 🔹 Step 1: Create Two AWS EC2 Instances
 
-<div align="center">
-  <img src="./public/assets/home-page.png" alt="Logo" width="100%" height="100%">
-  <p align="center">Home Page</p>
-  <img src="./public/assets/mini-portal.png" alt="Logo" width="100%" height="100%">
-  <p align="center">Mini Portal</p>
-  <img src="./public/assets/detail-modal.png" alt="Logo" width="100%" height="100%">
-  <p align="center">Detail Modal</p>
-  <img src="./public/assets/grid-genre.png" alt="Logo" width="100%" height="100%">
-  <p align="center">Grid Genre Page</p>
-  <img src="./public/assets/watch.png" alt="Logo" width="100%" height="100%">
-  <p align="center">Watch Page with customer contol bar</p>
-</div>
+| Instance Name        | OS          | Type     | Storage |
+|----------------------|-------------|----------|---------|
+| jenkins-sonar        | Ubuntu 22.04| t2.large | 40 GB   |
+| prometheus-grafana   | Ubuntu 22.04| t2.large | 20 GB   |
 
-## Prerequests
+---
 
-- Create an account if you don't have on [TMDB](https://www.themoviedb.org/).
-  Because I use its free API to consume movie/tv data.
-- And then follow the [documentation](https://developers.themoviedb.org/3/getting-started/introduction) to create API Key
-- Finally, if you use v3 of TMDB API, create a file named `.env`, and copy and paste the content of `.env.example`.
-  And then paste the API Key you just created.
+## 🛠️ Jenkins-Sonar Instance Setup
 
-## Which features this project deal with
+### ✅ Install Jenkins
+```bash
+nano jenkins.sh
+```
+```script
+#!/bin/bash
+ 
+set -e
+ 
+echo "Updating system packages..."
+sudo apt update && sudo apt upgrade -y
+ 
+echo "Installing Java (OpenJDK 17)..."
+sudo apt install openjdk-17-jdk -y
+ 
+echo "Adding Jenkins GPG key..."
+curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | sudo tee \
+  /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+ 
+echo "Adding Jenkins repository..."
+echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
+  https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
+  /etc/apt/sources.list.d/jenkins.list > /dev/null
+ 
+echo "Updating package list with Jenkins repo..."
+sudo apt update
+ 
+echo "Installing Jenkins..."
+sudo apt install jenkins -y
+ 
+echo "Starting and enabling Jenkins service..."
+sudo systemctl start jenkins
+sudo systemctl enable jenkins
+ 
+echo "Allowing firewall on port 8080 (if UFW is active)..."
+sudo ufw allow 8080 || true
+sudo ufw reload || true
+ 
+echo "Jenkins installation completed!"
+echo
+echo "Access Jenkins via: http://<your-server-ip>:8080"
+echo "Initial admin password:"
+sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+```
+```bash
+chmod +x jenkins.sh
+```
+```bash
+./jenkins.sh
+```
+Access Jenkins: `http://<jenkins-ip>:8080`  
 
-- How to create and use [Custom Hooks](https://reactjs.org/docs/hooks-custom.html)
-- How to use [Context](https://reactjs.org/docs/context.html) and its provider
-- How to use lazy and Suspense for [Code-Splitting](https://reactjs.org/docs/code-splitting.html)
-- How to use a new [lazy](https://reactrouter.com/en/main/route/lazy) feature of react-router to reduce bundle size.
-- How to use data [loader](https://reactrouter.com/en/main/route/loader) of react-router, and how to use redux dispatch in the loader to fetch data before rendering component.
-- How to use [Portal](https://reactjs.org/docs/portals.html)
-- How to use [Fowarding Refs](https://reactjs.org/docs/forwarding-refs.html) to make components reusuable
-- How to create and use [HOC](https://reactjs.org/docs/higher-order-components.html)
-- How to customize default theme of [MUI](https://mui.com/)
-- How to use [RTK](https://redux-toolkit.js.org/introduction/getting-started)
-- How to use [RTK Query](https://redux-toolkit.js.org/rtk-query/overview)
-- How to customize default classname of [MUI](https://mui.com/material-ui/experimental-api/classname-generator)
-- Infinite Scrolling(using [Intersection Observer API](https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API))
-- How to make awesome carousel using [slick-carousel](https://react-slick.neostack.com)
 
-## Third Party libraries used except for React and RTK
-
-- [react-router-dom@v6.9](https://reactrouter.com/en/main)
-- [MUI(Material UI)](https://mui.com/)
-- [framer-motion](https://www.framer.com/docs/)
-- [video.js](https://videojs.com)
-- [react-slick](https://react-slick.neostack.com/)
-
-## Install with Docker
-
-```sh
-docker build --build-arg TMDB_V3_API_KEY=your_api_key_here -t netflix-clone .
-
-docker run --name netflix-clone-website --rm -d -p 80:80 netflix-clone
+### ✅ Install Docker
+```bash
+sudo apt update
+sudo apt install docker.io -y
+sudo usermod -aG docker $USER
+newgrp docker
+sudo chmod 777 /var/run/docker.sock
 ```
 
-## Todo
+### ✅ Install SonarQube (Docker)
+```bash
+docker run -d --name sonar -p 9000:9000 sonarqube:lts-community
+```
 
-- Make the animation of video card portal more similar to Netflix.
-- Improve performance. I am using `context` and `provider` but all components subscribed to the context's value are re-rendered. These re-renders happen even if the part of the value is not used in render of the component. there are [several ways](https://blog.axlight.com/posts/4-options-to-prevent-extra-rerenders-with-react-context/) to prevent the re-renders from these behaviours. In addition to them, there may be several performance issues.
-- Replace bundler([Vite](https://vitejs.dev/guide)) with [Turbopack](https://turbo.build/pack/docs/why-turbopack). Turbopack is introduced in Next.js conf recently. It's very fast but it's nor ready to use right now. it just support Next.js, and they plan to support all others as soon as possible. so if it's ready to use, replace [Vite](https://vitejs.dev/guide) with [Turbopack](https://turbo.build/pack/docs/why-turbopack).
-- Add accessibilities for better UX.
-- Add Tests.
+### ✅ Install Trivy (Security Scanner)
+```bash
+nano trivy.sh
+# Paste script and run:
+chmod +x trivy.sh
+./trivy.sh
+```
+
+---
+
+## 🌐 TMDB API Key Setup
+- Register at https://www.themoviedb.org/
+- Navigate: Profile → Settings → API → Developer → Create API Key
+
+---
+
+## 📈 Prometheus-Grafana Instance Setup
+
+### ✅ Install Prometheus
+Follow detailed steps to download binary, create service, configure Prometheus.yml, and enable the service.
+
+URL: `http://<prometheus-ip>:9090`
+
+### ✅ Install Node Exporter
+Add job_name in Prometheus config:
+```yaml
+- job_name: "node_export"
+  static_configs:
+    - targets: ["localhost:9100"]
+```
+Check targets: `http://<prometheus-ip>:9090/targets`
+
+### ✅ Install Grafana
+```bash
+sudo apt-get install -y apt-transport-https software-properties-common
+# Add repo and install Grafana
+sudo systemctl enable grafana-server
+sudo systemctl start grafana-server
+```
+Grafana URL: `http://<prometheus-ip>:3000`  
+Login: `admin` / `admin`  
+
+Add Prometheus as a data source.
+
+---
+
+## 🔧 Jenkins Configuration
+
+### 🔹 Install Plugins
+- Pipeline Stage View
+- Prometheus Metrics
+- Email Extension
+- Eclipse Temurin Installer
+- SonarQube Scanner
+- NodeJS Plugin
+- OWASP Dependency-Check
+- Docker Pipeline & API
+
+### 🔹 Prometheus Integration
+Set system path `/Prometheus` under Jenkins → System → Prometheus section.
+
+### 🔹 Email Configuration
+Set up SMTP with:
+- Host: `smtp.gmail.com`
+- Port: `465`
+- SSL enabled
+- App password stored in credentials
+
+### 🔹 Tools Configuration
+- **JDK:** jdk17 from adoptium.net
+- **NodeJS:** node16 from nodejs.org
+
+---
+
+## 🔐 SonarQube Integration
+
+### Sonar Server Setup in Jenkins:
+1. Create token in SonarQube.
+2. Add token as secret in Jenkins credentials.
+3. Configure Jenkins SonarQube settings with:
+   - Name: `sonar-server`
+   - URL: `http://<jenkins-ip>:9000`
+   - Token: `Sonar-token`
+
+### Sonar Scanner:
+- Install in Jenkins Tools.
+- Name: `sonar-scanner`
+
+### Webhook in SonarQube:
+- URL: `http://<jenkins-ip>:9000/sonarqube-webhook/`
+
+---
+
+## 🔍 OWASP Dependency Check
+Jenkins → Tools → Dependency-Check → Install version 6.5.1  
+Name: `DP-Check`
+
+---
+
+## 🐳 Docker Build & Push (Jenkins)
+- Add Docker tool in Jenkins → Tools.
+- Add DockerHub credentials in Jenkins → Credentials.
+
+---
+
+## 📜 Pipeline Script & Build
+- Add declarative pipeline in Jenkins pipeline job.
+- Example: CI/CD for TMDB app including Trivy scan, Sonar analysis, Docker build & push.
+
+---
+
+## 📊 Grafana Dashboard Import
+- Use IDs: `1860`, `9964` to import dashboards.
+- Select Prometheus data source.
+
+---
+
+## ✅ Final Output
+- Jenkins running at `http://<jenkins-ip>:8080`
+- SonarQube at `http://<jenkins-ip>:9000`
+- Prometheus at `http://<prometheus-ip>:9090`
+- Grafana at `http://<prometheus-ip>:3000`
+- Node Exporter metrics: `http://<prometheus-ip>:9100`
+
+---
+
+> 📘 Complete DevOps Monitoring and CI/CD Workflow on AWS EC2 with open-source tools.
