@@ -1,7 +1,7 @@
 
 # 🚀 Jenkins + SonarQube + Prometheus + Grafana Full DevOps Setup (AWS EC2)
 
-![Screenshot](Flow.png)
+![Screenshot](flow.png)
 
 This guide covers setting up a full CI/CD and monitoring infrastructure using Jenkins, SonarQube, Prometheus, and Grafana across two AWS EC2 instances running Ubuntu 22.04.
 
